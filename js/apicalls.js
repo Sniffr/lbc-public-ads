@@ -22,6 +22,7 @@ var start_index = 0;
 var stop_index = 5;
 var t0, t1;
 var progress_val = 0;
+let clear_table = 0;
 
 //main function to loop through api pages and get the data stores it in ad_array ad local storage
 async function main(url_option) {
@@ -63,6 +64,15 @@ async function main(url_option) {
         progressMin: 0,
         progressMax: 100,
 
+        // Text
+        text: "Getting data from lcbtc 0%",                                // String/Boolean
+        textAnimation: "",                                // String/Boolean
+        textAutoResize: true,                              // Boolean
+        textResizeFactor: 0.5,                               // Float
+        textColor: "#202020",                         // String/Boolean
+        textClass: "",                                // String/Boolean
+        textOrder: 4                                 // Integer
+
     });
 
     console.log(follow_url);
@@ -89,7 +99,8 @@ async function main(url_option) {
         url_array[index] = follow_url + i;
         index++;
     }
-
+    console.log("url_array");
+    console.log(url_array);
 
     //take timestamp for perfomance
     t0 = performance.now()
@@ -112,20 +123,24 @@ async function main(url_option) {
 
     //storing the data in local storage depending on the ads saved in ad array
     //try to save the object to file
-    try {
-        console.log("saving to file");
-        if (url_option === "BUY") {
-            var obj = JSON.stringify(ad_array);
-            download(obj, localStorage_buy + new Date().YYYYMMDDHHMMSS(), 'text/plain');
+    if (confirm("Do you want to download the ads as json ")) {
+        try {
+            console.log("saving to file");
+            if (url_option === "BUY") {
+                var obj = JSON.stringify(ad_array);
+                download(obj, localStorage_buy + new Date().YYYYMMDDHHMMSS(), 'text/plain');
 
-        } else if (url_option === "SELL") {
-            var obj2 = JSON.stringify(ad_array);
-            download(obj2, localStorage_sell + new Date().YYYYMMDDHHMMSS(), 'text/plain');
+            } else if (url_option === "SELL") {
+                var obj2 = JSON.stringify(ad_array);
+                download(obj2, localStorage_sell + new Date().YYYYMMDDHHMMSS(), 'text/plain');
+            }
+        } catch (e) {
+            // fires When localstorage gets full
+            // you can handle error here or empty the local stora
+            console.log(e);
         }
-    } catch (e) {
-        // fires When localstorage gets full
-        // you can handle error here or empty the local stora
-        console.log(e);
+    } else {
+        console.log("You pressed Cancel!");
     }
 
 
@@ -138,6 +153,7 @@ async function loop_all_links(url_array_arg) {
     for (i = 0; i <= last_page; i = i + 5) {
         progress_val = i / last_page * 100;
         $.LoadingOverlay("progress", progress_val);
+        $.LoadingOverlay("text", "Getting data from lcbtc " + parseInt(progress_val )+ "%");
         var sliced_array = url_array_arg.slice(start_index, stop_index);
         await get_promises(sliced_array);
         console.log(response_array);
@@ -218,20 +234,41 @@ function millisToMinutesAndSeconds(millis) {
 
 //load ads to  table on button click
 function load_ads(load_table, ad_array) {
-    $.LoadingOverlay("show");
-    console.log(ad_array.length);
-    load_table.clear().draw();
+
+    console.log("loading ads ");
+    console.log(ad_array.length + " objects");
+    $.LoadingOverlay("show", {
+
+        // Text
+        text: "Getting data",                                // String/Boolean
+        textAnimation: "",                                // String/Boolean
+        textAutoResize: true,                              // Boolean
+        textResizeFactor: 0.5,                               // Float
+        textColor: "#202020",                         // String/Boolean
+        textClass: "",                                // String/Boolean
+        textOrder: 4                                 // Integer
+
+    });
+    if (clear_table === 1) {
+        load_table.clear().draw();
+        clear_table = 0;
+    }
     for (ad in ad_array) {
         var percentage = (parseFloat(ad_array[ad].data.temp_price_usd) - price) / 100;
         load_table.row.add([
+
+            ad_array[ad].data.ad_id,//country
             ad_array[ad].data.location_string,//country
             ad_array[ad].data.temp_price_usd,//price
             percentage.toFixed(2),//percentage
             ad_array[ad].data.online_provider + " : " + ad_array[ad].data.bank_name,//payment method
             ad_array[ad].data.trade_type,//trade type
             "<a href='" + ad_array[ad].actions.public_view + "'>link</a>",]).draw(false);//link
+        $.LoadingOverlay("text", "Loading object " + ad + " of " + ad_array.length);
+
     }
-    $.LoadingOverlay("hide");
+    clear_table = 1;
+    $.LoadingOverlay("hide",);
 
 }
 
@@ -260,17 +297,39 @@ $(document).ready(function () {
 
     //load data from file storage
     $("#localadsfile_btn").click(async function () {
-        $.LoadingOverlay("show");
+        $.LoadingOverlay("show", {
+            // Text
+            text: "Getting data ",                                // String/Boolean
+            textAnimation: "",                                // String/Boolean
+            textAutoResize: true,                              // Boolean
+            textResizeFactor: 0.5,                               // Float
+            textColor: "#202020",                         // String/Boolean
+            textClass: "",                                // String/Boolean
+            textOrder: 4                                 // Integer
+
+        });
+        console.log("loading ads ");
         if ($('#input_file').get(0).files.length === 0) {
             alert("No files selected.");
         } else {
             console.log(ad_array.length);
-
+            console.log("getting price");
             price = await get_page("https://localbitcoins.com/api/equation/btc_in_usd*1").then(function (data) {
                 return data.data;
             });
+            console.log("Done getting price");
+
+
             $("#btc_price").val(price);
-            js_table.clear().draw();
+            if (clear_table === 1) {
+                console.log("clearing table");
+                load_table.clear().draw();
+                clear_table = 0;
+                console.log("Done clearing table");
+
+            }
+
+            console.log("filling table ");
 
             for (ad in ad_array) {
                 var percentage = (parseFloat(ad_array[ad].data.temp_price_usd) - price) / 100;
@@ -282,7 +341,12 @@ $(document).ready(function () {
                     ad_array[ad].data.trade_type,//trade type
                     "<a href='" + ad_array[ad].actions.public_view + "'>link</a>",]).draw(false);//link
             }
+            $.LoadingOverlay("text", "Loading object " + ad + " of " + ad_array.length);
+            console.log("done filling table ");
             $.LoadingOverlay("hide");
+            clear_table =1;
+
+
         }
 
 
